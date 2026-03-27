@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>近くの訪問先</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #242836;
+    --accent: #4ecdc4;
+    --accent2: #ff6b6b;
+    --white: #e8eaed;
+    --muted: #8b8fa3;
+    --border: #2d3142;
+    --shiraj: #e8475f;
+    --kiyaku: #4ecdc4;
+  }
+
+  body {
+    font-family: 'Noto Sans JP', sans-serif;
+    background: var(--bg);
+    color: var(--white);
+    min-height: 100dvh;
+    overflow-x: hidden;
+  }
+
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: linear-gradient(180deg, var(--bg) 0%, rgba(15,17,23,0.95) 100%);
+    backdrop-filter: blur(20px);
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .header h1 {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+
+  .header h1 span { color: var(--accent); }
+
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    animation: none;
+  }
+
+  .status-dot.active {
+    background: #4ade80;
+    animation: pulse 2s infinite;
+  }
+
+  .status-dot.error {
+    background: var(--accent2);
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .radius-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .radius-control label {
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .radius-slider {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+  }
+
+  .radius-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+  }
+
+  .radius-value {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent);
+    min-width: 48px;
+    text-align: right;
+  }
+
+  .filter-bar {
+    display: flex;
+    gap: 8px;
+    padding: 12px 20px;
+    overflow-x: auto;
+  }
+
+  .filter-btn {
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+
+  .filter-btn.active {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+
+  .filter-btn.active-shiraj {
+    background: var(--shiraj);
+    color: white;
+    border-color: var(--shiraj);
+    font-weight: 600;
+  }
+
+  .filter-btn.active-kiyaku {
+    background: var(--kiyaku);
+    color: var(--bg);
+    border-color: var(--kiyaku);
+    font-weight: 600;
+  }
+
+  .count-bar {
+    padding: 8px 20px;
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .list { padding: 0 16px 100px; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 10px;
+    transition: transform 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 4px; height: 100%;
+  }
+
+  .card.shiraj::before { background: var(--shiraj); }
+  .card.kiyaku::before { background: var(--kiyaku); }
+
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .company-name {
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.4;
+    flex: 1;
+  }
+
+  .distance-badge {
+    font-size: 13px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 12px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .distance-badge.close {
+    background: rgba(78,205,196,0.15);
+    color: var(--accent);
+  }
+
+  .distance-badge.mid {
+    background: rgba(255,214,102,0.15);
+    color: #ffd666;
+  }
+
+  .distance-badge.far {
+    background: rgba(255,107,107,0.1);
+    color: var(--accent2);
+  }
+
+  .type-tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-top: 6px;
+  }
+
+  .type-tag.shiraj {
+    background: rgba(232,71,95,0.15);
+    color: var(--shiraj);
+  }
+
+  .type-tag.kiyaku {
+    background: rgba(78,205,196,0.15);
+    color: var(--kiyaku);
+  }
+
+  .address {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 8px;
+    line-height: 1.5;
+  }
+
+  .card-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .action-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px;
+    border-radius: 10px;
+    border: none;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    text-decoration: none;
+    transition: opacity 0.2s;
+  }
+
+  .action-btn:active { opacity: 0.7; }
+
+  .action-btn.map {
+    background: rgba(78,205,196,0.15);
+    color: var(--accent);
+  }
+
+  .action-btn.nav {
+    background: rgba(102,153,255,0.15);
+    color: #6699ff;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+  }
+
+  .empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+  .empty-state p { font-size: 14px; line-height: 1.6; }
+
+  .loading-state {
+    text-align: center;
+    padding: 80px 20px;
+  }
+
+  .spinner {
+    width: 40px; height: 40px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 16px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-state p {
+    font-size: 14px;
+    color: var(--muted);
+  }
+
+  .refresh-btn {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(78,205,196,0.4);
+    transition: transform 0.2s;
+    z-index: 50;
+  }
+
+  .refresh-btn:active { transform: scale(0.9); }
+  .refresh-btn.spinning { animation: spin 0.8s linear infinite; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1><span>&#x1F4CD;</span> 近くの訪問先</h1>
+  <div class="status-bar">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">位置情報を取得中...</span>
+  </div>
+</div>
+
+<div class="radius-control">
+  <label>検索範囲</label>
+  <input type="range" class="radius-slider" id="radiusSlider" min="100" max="2000" step="100" value="500">
+  <span class="radius-value" id="radiusValue">500m</span>
+</div>
+
+<div class="filter-bar">
+  <button class="filter-btn active" data-filter="all">すべて</button>
+  <button class="filter-btn" data-filter="shiraj">白地</button>
+  <button class="filter-btn" data-filter="kiyaku">既契約</button>
+</div>
+
+<div class="count-bar">
+  <span id="countText">検索中...</span>
+  <span id="lastUpdate"></span>
+</div>
+
+<div class="list" id="companyList">
+  <div class="loading-state">
+    <div class="spinner"></div>
+    <p>現在地を取得しています...</p>
+  </div>
+</div>
+
+<button class="refresh-btn" id="refreshBtn" onclick="refreshLocation()">&#x21BB;</button>
+
+<script>
+// ===== Company data with approximate coordinates =====
+// Coordinates are pre-mapped by town block for offline distance calculation
+const TOWN_COORDS = {
+  "武蔵野市吉祥寺南町1": [35.7020, 139.5790],
+  "武蔵野市吉祥寺南町2": [35.6995, 139.5795],
+  "武蔵野市吉祥寺南町3": [35.6975, 139.5800],
+  "武蔵野市吉祥寺南町5": [35.6940, 139.5810],
+  "武蔵野市吉祥寺本町1": [35.7045, 139.5790],
+  "武蔵野市吉祥寺本町2": [35.7050, 139.5750],
+  "武蔵野市吉祥寺本町3": [35.7060, 139.5720],
+  "武蔵野市吉祥寺東町1": [35.7080, 139.5850],
+  "武蔵野市吉祥寺東町2": [35.7070, 139.5870],
+  "武蔵野市吉祥寺東町3": [35.7060, 139.5890],
+  "武蔵野市吉祥寺北町1": [35.7110, 139.5770],
+  "武蔵野市吉祥寺北町2": [35.7130, 139.5770],
+  "武蔵野市御殿山1": [35.7010, 139.5830],
+  "武蔵野市御殿山2": [35.6990, 139.5850],
+  "武蔵野市境1": [35.7150, 139.5560],
+  "武蔵野市緑町1": [35.7170, 139.5620],
+  "武蔵野市西久保2": [35.7120, 139.5670],
+  "三鷹市下連雀5": [35.6930, 139.5640],
+  "小平市大沼町5": [35.7340, 139.4890],
+  "千代田区丸の内2": [35.6810, 139.7660],
+  "新宿区揚場町1": [35.6990, 139.7410],
+  "立川市砂川町1": [35.7380, 139.4260],
+  "立川市上砂町5": [35.7340, 139.4320],
+};
+
+function getCoords(address) {
+  for (const [town, coords] of Object.entries(TOWN_COORDS)) {
+    if (address.includes(town)) return coords;
+  }
+  // Fallback: try broader match
+  if (address.includes("吉祥寺")) return [35.7030, 139.5790];
+  if (address.includes("三鷹")) return [35.6930, 139.5640];
+  if (address.includes("立川")) return [35.7360, 139.4290];
+  return null;
+}
+
+function haversineDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+const COMPANIES = [
+  {"name":"小野山興産株式会社","address":"東京都武蔵野市吉祥寺南町1-6-2 明治安田生命吉祥寺ビル6F","type":"白地"},
+  {"name":"株式会社いせや総本店","address":"東京都武蔵野市御殿山1丁目2-1","type":"白地"},
+  {"name":"税理士法人アンサーズ会計事務所","address":"東京都武蔵野市吉祥寺南町2-8-7 吉祥寺ガイビル3F","type":"白地"},
+  {"name":"株式会社ドリームキューブワン","address":"東京都武蔵野市御殿山1丁目2-2 グレイス御殿山第301","type":"白地"},
+  {"name":"東山建設株式会社","address":"東京都武蔵野市吉祥寺南町1-2-2 東山ビル","type":"白地"},
+  {"name":"(株)エシェルダンジュ","address":"東京都武蔵野市御殿山1-2-2 アレーテ高橋6F","type":"白地"},
+  {"name":"ファングロウス(株)","address":"東京都武蔵野市吉祥寺南町1丁目3-4 吉祥寺南口ビル63","type":"白地"},
+  {"name":"株式会社喜八屋","address":"東京都武蔵野市吉祥寺南町2-2-5 アスコーナミエビル628","type":"白地"},
+  {"name":"有限会社アルキ造園設計事務所","address":"東京都武蔵野市吉祥寺南町2-23-9","type":"白地"},
+  {"name":"株式会社大夢","address":"東京都武蔵野市吉祥寺南町2-12-10","type":"白地"},
+  {"name":"(株)TASIC","address":"東京都武蔵野市吉祥寺南町3-7-1 プランドール山菱2F","type":"白地"},
+  {"name":"(株)クリエイティブノルム","address":"東京都武蔵野市吉祥寺東町3丁目28-3","type":"白地"},
+  {"name":"株式会社土佐屋","address":"東京都武蔵野市吉祥寺本町3丁目7-8","type":"白地"},
+  {"name":"株式会社リベスト","address":"東京都武蔵野市吉祥寺本町1-15-2 ダイヤバローレビル6階","type":"白地"},
+  {"name":"株式会社アストリーディング","address":"東京都武蔵野市吉祥寺本町1丁目4-11 ライオンズステーションプラザ吉祥寺","type":"白地"},
+  {"name":"株式会社エレメンツ","address":"東京都武蔵野市吉祥寺本町1-31-11 KSビル306","type":"白地"},
+  {"name":"プレイス株式会社","address":"東京都武蔵野市吉祥寺本町1-20-1 吉祥寺永谷シティプラザ908号","type":"白地"},
+  {"name":"株式会社do-CREA","address":"東京都武蔵野市吉祥寺本町1-13-6 古谷ビル905号","type":"白地"},
+  {"name":"株式会社Bb Wood Japan","address":"東京都武蔵野市吉祥寺本町1-8-5 レンガ館モール203号","type":"白地"},
+  {"name":"株式会社デュエル","address":"東京都武蔵野市吉祥寺本町1-10-7 プレイスビル4階","type":"白地"},
+  {"name":"株式会社ディーアイディー","address":"東京都武蔵野市吉祥寺本町1-31-11 KSビル9F","type":"白地"},
+  {"name":"(株)style one","address":"東京都武蔵野市吉祥寺本町1-4-11 ライオンズステーションプラザ906","type":"白地"},
+  {"name":"(株)サイドライン","address":"東京都武蔵野市吉祥寺本町1-34-3-102","type":"白地"},
+  {"name":"(株)DEGICA","address":"東京都武蔵野市吉祥寺本町1-14-9 プレファス吉祥寺フロント9F","type":"白地"},
+  {"name":"社会保険労務士須田事務所","address":"東京都武蔵野市吉祥寺本町1-28-3-207","type":"白地"},
+  {"name":"(株)津田企画","address":"東京都武蔵野市吉祥寺本町1丁目18-6","type":"白地"},
+  {"name":"(株)フーニオデザイン","address":"東京都武蔵野市吉祥寺本町1丁目35-14 ユニアス七井マンション202","type":"白地"},
+  {"name":"K.MPartners(株)","address":"東京都武蔵野市吉祥寺本町1丁目20-1 吉祥寺永谷シティプラザ1002","type":"白地"},
+  {"name":"株式会社エル設計事務所","address":"東京都新宿区揚場町1-3 グロリアビル7階","type":"白地"},
+  {"name":"株式会社桔龍","address":"東京都小平市大沼町5丁目13-27","type":"既契約"},
+  {"name":"ハウスリンクマネジメント株式会社","address":"東京都千代田区丸の内2丁目3-2 郵船ビルディング703-A","type":"既契約"},
+  {"name":"株式会社亀屋萬年堂","address":"東京都武蔵野市吉祥寺東町1丁目25-14","type":"既契約"},
+  {"name":"有限会社笹隈造園","address":"東京都武蔵野市吉祥寺東町2丁目11-12","type":"既契約"},
+  {"name":"みすゞ建設株式会社","address":"東京都武蔵野市吉祥寺東町2丁目2-15","type":"既契約"},
+  {"name":"有限会社南設備工業所","address":"東京都武蔵野市吉祥寺東町3丁目16-5","type":"既契約"},
+  {"name":"有限会社スタジオ・ザイン","address":"東京都武蔵野市吉祥寺東町3丁目17-4","type":"既契約"},
+  {"name":"株式会社トライブ","address":"東京都武蔵野市吉祥寺南町1丁目1-2-5F2","type":"既契約"},
+  {"name":"株式会社サンバレー","address":"東京都武蔵野市吉祥寺南町2丁目22-15","type":"既契約"},
+  {"name":"株式会社英興発","address":"東京都武蔵野市吉祥寺南町2丁目28-10 ハナブサ吉祥寺","type":"既契約"},
+  {"name":"株式会社プレキュラ","address":"東京都武蔵野市吉祥寺南町2丁目6-5-3F","type":"既契約"},
+  {"name":"有限会社ボナペティ","address":"東京都武蔵野市吉祥寺南町2丁目8-8","type":"既契約"},
+  {"name":"株式会社AKコミュニケーション","address":"東京都武蔵野市吉祥寺南町3丁目11-7","type":"既契約"},
+  {"name":"有限会社稲毛屋","address":"東京都武蔵野市吉祥寺南町3丁目7-1","type":"既契約"},
+  {"name":"高信産業株式会社","address":"東京都武蔵野市吉祥寺南町5丁目13-21","type":"既契約"},
+  {"name":"株式会社ファーストステップ","address":"東京都武蔵野市吉祥寺南町5丁目8-26-ターニングビル101","type":"既契約"},
+  {"name":"株式会社スペース・P","address":"東京都武蔵野市吉祥寺北町1丁目12-11","type":"既契約"},
+  {"name":"有限会社開明塾","address":"東京都武蔵野市吉祥寺北町2丁目5-6","type":"既契約"},
+  {"name":"有限会社ojim","address":"東京都武蔵野市吉祥寺本町1-11-21 せのおビル1階","type":"既契約"},
+  {"name":"株式会社安藤商事","address":"東京都武蔵野市吉祥寺本町1丁目12-6 安藤ビル","type":"既契約"},
+  {"name":"株式会社COASS","address":"東京都武蔵野市吉祥寺本町1丁目20-1-607","type":"既契約"},
+  {"name":"株式会社ジェイワン","address":"東京都武蔵野市吉祥寺本町1丁目21-2 グローリオ吉祥寺本町210","type":"既契約"},
+  {"name":"株式会社小美濃","address":"東京都武蔵野市吉祥寺本町1丁目8-16 コピスA館1階","type":"既契約"},
+  {"name":"株式会社ステップス","address":"東京都武蔵野市吉祥寺本町2丁目12-16 Luse中道通201号室","type":"既契約"},
+  {"name":"株式会社Tサービス","address":"東京都武蔵野市吉祥寺本町2丁目12-2-B1F","type":"既契約"},
+  {"name":"株式会社アクセス","address":"東京都武蔵野市吉祥寺本町2丁目5-10 TK吉祥寺ビル8F","type":"既契約"},
+  {"name":"有限会社カスピアン","address":"東京都武蔵野市吉祥寺本町2丁目7-9 トーシンフェニックス1F","type":"既契約"},
+  {"name":"アストロジカ合同会社","address":"東京都武蔵野市吉祥寺本町3丁目2-13 コムコールデコット202","type":"既契約"},
+  {"name":"株式会社フーズデザイン","address":"東京都武蔵野市御殿山1丁目4-16 メゾン井の頭1202","type":"既契約"},
+  {"name":"株式会社もしもし","address":"東京都三鷹市下連雀5丁目32-505","type":"既契約"},
+  {"name":"パンジットジャパン株式会社","address":"東京都武蔵野市吉祥寺本町1丁目31-11-606","type":"既契約"},
+  {"name":"株式会社ラ・フルティエール・ジャポン","address":"東京都武蔵野市吉祥寺本町1丁目35-14 ユニアス七井マンション401","type":"既契約"},
+  {"name":"清水商事株式会社","address":"東京都武蔵野市吉祥寺本町2丁目15-6","type":"既契約"},
+  {"name":"株式会社武蔵野ソリューション","address":"東京都武蔵野市吉祥寺本町2丁目26-5-1F","type":"既契約"},
+  {"name":"株式会社ニュースター楽器","address":"東京都武蔵野市西久保2丁目28-3-107","type":"既契約"},
+  {"name":"有限会社近藤製作所","address":"東京都武蔵野市御殿山2丁目3-18","type":"既契約"},
+  {"name":"株式会社山長","address":"東京都武蔵野市緑町1丁目3-4","type":"既契約"},
+  {"name":"株式会社共進プロセス","address":"東京都武蔵野市境1丁目18-21","type":"既契約"},
+  {"name":"有限会社西東京ロックサービス","address":"東京都立川市砂川町1丁目53-6","type":"既契約"},
+  {"name":"株式会社三信","address":"東京都立川市上砂町5丁目64-3","type":"既契約"},
+  {"name":"有限会社ジャック","address":"東京都武蔵野市吉祥寺南町2丁目28-8","type":"既契約"},
+  {"name":"オフィスナガイ","address":"東京都武蔵野市吉祥寺南町1丁目1-3 イケダビル5F","type":"既契約"},
+  {"name":"株式会社マイスタージャパン","address":"東京都武蔵野市吉祥寺南町5丁目13-21","type":"既契約"},
+  {"name":"株式会社エレメンツ","address":"東京都武蔵野市吉祥寺本町1-31-11 KSビル306","type":"既契約"},
+];
+
+let currentLat = null, currentLon = null;
+let currentFilter = 'all';
+let currentRadius = 500;
+
+// Filter buttons
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.className = 'filter-btn');
+    const filter = btn.dataset.filter;
+    if (filter === 'shiraj') btn.classList.add('active-shiraj');
+    else if (filter === 'kiyaku') btn.classList.add('active-kiyaku');
+    else btn.classList.add('active');
+    currentFilter = filter;
+    renderList();
+  });
+});
+
+// Radius slider
+const slider = document.getElementById('radiusSlider');
+const radiusVal = document.getElementById('radiusValue');
+slider.addEventListener('input', () => {
+  currentRadius = parseInt(slider.value);
+  radiusVal.textContent = currentRadius >= 1000 ? (currentRadius/1000).toFixed(1) + 'km' : currentRadius + 'm';
+  renderList();
+});
+
+function setStatus(state, text) {
+  const dot = document.getElementById('statusDot');
+  const txt = document.getElementById('statusText');
+  dot.className = 'status-dot ' + state;
+  txt.textContent = text;
+}
+
+function renderList() {
+  const list = document.getElementById('companyList');
+  const countText = document.getElementById('countText');
+
+  if (!currentLat || !currentLon) return;
+
+  let results = COMPANIES.map(c => {
+    const coords = getCoords(c.address);
+    if (!coords) return null;
+    const dist = haversineDistance(currentLat, currentLon, coords[0], coords[1]);
+    return { ...c, distance: dist, lat: coords[0], lon: coords[1] };
+  }).filter(c => c && c.distance <= currentRadius);
+
+  // Apply filter
+  if (currentFilter === 'shiraj') results = results.filter(c => c.type === '白地');
+  if (currentFilter === 'kiyaku') results = results.filter(c => c.type === '既契約');
+
+  // Sort by distance
+  results.sort((a, b) => a.distance - b.distance);
+
+  countText.textContent = `${results.length}件ヒット（${currentRadius >= 1000 ? (currentRadius/1000).toFixed(1)+'km' : currentRadius+'m'}圏内）`;
+  document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'}) + ' 更新';
+
+  if (results.length === 0) {
+    list.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">&#x1F50D;</div>
+        <p>この範囲に訪問先はありません<br>スライダーで検索範囲を広げてみてください</p>
+      </div>`;
+    return;
+  }
+
+  list.innerHTML = results.map(c => {
+    const distText = c.distance < 100 ? Math.round(c.distance) + 'm' : (c.distance/1000).toFixed(1) + 'km';
+    const distClass = c.distance < 200 ? 'close' : c.distance < 400 ? 'mid' : 'far';
+    const typeClass = c.type === '白地' ? 'shiraj' : 'kiyaku';
+    const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.address)}`;
+    const navUrl = `https://www.google.com/maps/dir/?api=1&origin=${currentLat},${currentLon}&destination=${encodeURIComponent(c.address)}&travelmode=walking`;
+
+    return `
+      <div class="card ${typeClass}">
+        <div class="card-top">
+          <div>
+            <div class="company-name">${c.name}</div>
+            <span class="type-tag ${typeClass}">${c.type}</span>
+          </div>
+          <span class="distance-badge ${distClass}">${distText}</span>
+        </div>
+        <div class="address">${c.address}</div>
+        <div class="card-actions">
+          <a href="${mapUrl}" target="_blank" class="action-btn map">&#x1F4CD; 地図</a>
+          <a href="${navUrl}" target="_blank" class="action-btn nav">&#x1F6B6; ナビ</a>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function getLocation() {
+  if (!navigator.geolocation) {
+    setStatus('error', '位置情報非対応のブラウザです');
+    return;
+  }
+
+  setStatus('', '位置情報を取得中...');
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      currentLat = pos.coords.latitude;
+      currentLon = pos.coords.longitude;
+      setStatus('active', `取得済み（精度 ${Math.round(pos.coords.accuracy)}m）`);
+      renderList();
+    },
+    (err) => {
+      setStatus('error', '位置情報を取得できませんでした');
+      document.getElementById('companyList').innerHTML = `
+        <div class="empty-state">
+          <div class="icon">&#x26A0;&#xFE0F;</div>
+          <p>位置情報の許可が必要です<br>ブラウザの設定で位置情報を許可してください</p>
+        </div>`;
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+  );
+}
+
+function refreshLocation() {
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spinning');
+  setTimeout(() => btn.classList.remove('spinning'), 800);
+  getLocation();
+}
+
+// Init
+getLocation();
+</script>
+</body>
+</html>
